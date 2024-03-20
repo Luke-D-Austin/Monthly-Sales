@@ -1,0 +1,61 @@
+---
+title: "Monthly Sales Project"
+author: "Luke Austin"
+date: "2024-03-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The goal of this project was to use time series analysis skills to fit a model for monthly sales data. Specifically, we will be using a dataset from "sales" in the "astsa" package, and fitting an autoregressive integrated moving averages (ARIMA) model. St will represent the monthly sales data in sales (n = 150).
+
+
+First, initially examine the data. Plot the data as a time series and view ACF and PACF plots
+```{r}
+library(astsa)
+St<- sales
+plot.ts(St)
+acf(St)
+pacf(St)
+```
+
+In the time series plot, I noticed an upward trend in the data overtime, and the ACF plot is trailing off very slowly. For this reason, I will transform the data by differencing the data. This creates stationarity
+
+```{r}
+St.2<- diff(St)
+plot.ts(St.2)
+acf(St.2)
+pacf(St.2)
+```
+
+This is much better, the data appears stationary and stable now and like something workable in the time series analysis and modeling with going forward. 
+
+Now, I will consider the initial identification of the dependence orders and degree of differencing. Based on the ACF plot, we will consider q=4 or less and based of the PACF plot, we will consider p=2 or less.
+
+Knowing this, I move directly into parameter estimation. I will estimate which parameters of p and q might be best using Akaike information criterion (AIC).
+
+```{r}
+for(p in 0:2){
+for(q in 0:4){
+mod.St <- arima(St.2, order=c(p,0,q))
+print(paste("ARMA",p,q, "AIC:",mod.St$aic))
+}
+}
+```
+Out of all of these, ARMA (1,1) clearly has lowest AIC and therefore is the model I will want to use going forward as I evaluate this data. I estimate that p=1 q=1 will give us the best results so to make sure it is suitable, I will perform some diagnostic testing and evaluation on this model
+
+```{r}
+mod.St2 <- arima(St.2, order=c(1,0,1)); tsdiag(mod.St2) #Residuals, ACF of residuals, Ljung-box
+par(mfrow = c(2,2));rt3<-resid(mod.St2);pacf(rt3);hist(rt3)
+curve(dnorm(x, mean(rt3),sd = sd(rt3)),
+col = "red", add = TRUE)
+qqnorm(rt3);qqline(rt3,col = "red") #PACF, normality assessments.
+arima(St.2, order=c(1,0,1)) #Test if all values are significant
+#Yes, we get that our values are significant! Therefore, we will use an ARMA(1,1) model to model the monthly sales data.
+```
+I see no autocorrelation of  residuals, which is good, I also notice that the test passes the Ljung-box statistic test as all points have high p-values. The standardized residuals look great as well. The model diagnostics  assessing the normality (histogram and qqplot) and plotting the standardized residuals PACF look good as well and pass diagnostic testing! Finally, I use "arima()" make sure all values of our model are significant, which they are.
+
+Therefore, the conclusion is that an ARMA (1,1) model will be best for modeling the monthly sales data.
+
